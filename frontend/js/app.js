@@ -28,8 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const result = await callPartitionApi(payload);
-    if (result.error) {
-      document.getElementById("results").innerHTML = `<p class=\"error\">Error: ${result.error}</p>`;
+    if (result.error || result.status === "error") {
+      const message = result.error || result.message || "Ocurrió un error en el servidor.";
+      document.getElementById("results").innerHTML = `<p class="error">Error: ${message}</p>`;
       return;
     }
     renderResult(result);
