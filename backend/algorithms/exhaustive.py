@@ -22,4 +22,4 @@ def exhaustive_partition(matrix, k):
     search(0)
     if best_assignment is None:
         best_assignment = assignment.copy()
-    return best_assignment, best_cut, True
+    return best_assignment, best_cut
