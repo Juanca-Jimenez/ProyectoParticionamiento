@@ -12,3 +12,4 @@ def test_cut_edges():
     assignment = [0, 1, 1]
     edges = cut_edges(matrix, assignment)
     assert edges == [{"source": 0, "target": 1, "weight": 4}]
+00

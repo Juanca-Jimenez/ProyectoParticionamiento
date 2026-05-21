@@ -1,0 +1,254 @@
+1. DESCRIPCIÓN GENERAL DEL SISTEMA
+
+El sistema es una aplicación full stack para resolver un problema de particionamiento de grafos basado en dependencias entre componentes. Su objetivo principal es dividir un conjunto de componentes en exactamente k grupos no vacíos de forma que se minimice la suma de dependencias que quedan entre grupos distintos.
+
+Funciona como un sistema de optimización de dependencias: recibe una matriz de adyacencia ponderada que representa las dependencias entre componentes y devuelve una partición de componentes en k grupos. Evalúa el valor de corte de la partición, identifica las aristas cortadas y ofrece una visualización gráfica de la solución.
+
+Este sistema:
+- resuelve un problema de particionamiento de grafos,
+- minimiza dependencias entre grupos,
+- divide los componentes en k particiones.
+
+
+2. INTERPRETACIÓN MATEMÁTICA
+
+En esta implementación, el grafo G = (V, E, W) se define mediante:
+- V: el conjunto de nodos, donde cada nodo representa un componente o módulo de software.
+- E: el conjunto de aristas, donde una arista {i, j} representa una dependencia entre los componentes i y j.
+- W: el peso de cada arista, que modela la intensidad o costo de la dependencia entre dos componentes.
+
+La entrada es una matriz cuadrada simétrica M de tamaño n×n:
+- M[i][j] = peso de la dependencia entre i y j.
+- M[i][i] = 0 para todo i, porque no hay dependencia de un componente consigo mismo.
+- M debe ser simétrica: M[i][j] = M[j][i].
+- Los pesos son valores numéricos no negativos.
+
+Una partición P = {P_0, P_1, ..., P_{k-1}} es un conjunto de k subconjuntos disjuntos de V tal que:
+- ∪_{g=0}^{k-1} P_g = V,
+- P_g ≠ ∅ para todo g,
+- P_g ∩ P_h = ∅ si g ≠ h.
+
+"Cortar una arista" significa que los dos extremos de la arista quedan asignados a grupos distintos. Una arista {
+ i, j} es cortada si assignment[i] ≠ assignment[j].
+
+El valor de corte Cut(P) es la suma de los pesos de todas las aristas cortadas:
+
+Cut(P) = ∑_{0 ≤ i < j < n} w_{ij} * [assignment[i] ≠ assignment[j]]
+
+En el código, la función `calculate_cut(matrix, assignment)` implementa exactamente esta suma, iterando sobre pares i < j y acumulando M[i][j] cuando i y j están en grupos distintos.
+
+Formalmente:
+- Si `assignment` es la función que asigna cada nodo a un grupo en {0, ..., k-1},
+- entonces Cut(assignment) = ∑_{i<j, assignment[i]≠assignment[j]} M[i][j].
+
+
+3. PROCESO COMPLETO DEL SISTEMA
+
+1. El usuario carga una matriz CSV o la pega en el área de texto del frontend.
+2. El frontend convierte el texto en una matriz numérica y muestra un grafo inicial.
+3. El usuario elige k y ejecuta el particionamiento.
+4. El frontend envía un POST a `http://localhost:5000/api/partition` con el JSON `{ matrix, k }`.
+5. El backend recibe la petición en `backend/api/routes.py`, parsea CSV si es necesario y valida la matriz con `validate_matrix`.
+6. La validación comprueba que la matriz sea cuadrada, simétrica, numérica, no negativa, con diagonal cero, y que 2 ≤ k ≤ 5.
+7. Si la matriz es válida, `PartitionEngine` se crea con la matriz y k.
+8. En `PartitionEngine.run()`, se decide el algoritmo según el tamaño n:
+   - si n < 12: se utiliza `exhaustive_partition` para buscar la solución exacta.
+   - si n ≥ 12: se utiliza `heuristic_partition` para obtener una solución aproximada.
+9. El algoritmo genera una asignación `assignment` de cada nodo a un grupo.
+10. Se valida que la asignación tenga exactamente n entradas, grupos en 0..k-1 y exactamente k grupos distintos.
+11. Se calculan las aristas cortadas con `get_cut_edges` y el valor de corte óptimo con `calculate_cut`.
+12. Se construyen estructuras de salida: particiones nombradas `Componente_i`, explicación de la solución y razones por componente.
+13. El backend devuelve un JSON con `partitions`, `cut_value`, `cut_edges`, `optimal`, `execution_time_ms`, `memory_peak_kb`, entre otros.
+14. El frontend recibe el resultado y:
+   - muestra los grupos y métricas en HTML,
+   - visualiza el grafo particionado coloreando nodos por grupo,
+   - marca aristas cortadas en rojo y trazado discontinuo.
+15. El resultado final es la partición calculada y su interpretación visual.
+
+
+4. ALGORITMOS IMPLEMENTADOS
+
+Algoritmo exhaustivo (`backend/algorithms/exhaustive.py`):
+- Paradigma: búsqueda exhaustiva por backtracking con poda (branch-and-bound) y reducción de simetría.
+- Funcionamiento: asigna nodos uno por uno a grupos, mantiene `current_cut` incremental y descarta ramas si el corte actual ya es peor que la mejor solución encontrada.
+- Poda branch & bound: si `current_cut >= best_cut`, se abandona la rama.
+- Reducción de simetría: se fija el primer nodo en el grupo 0 para evitar evaluaciones redundantes de permutaciones equivalentes.
+- Restricción de validação: si quedan menos nodos restantes que grupos faltantes, la rama se corta.
+- Complejidad: exponencial en n, aproximadamente O(k^n) en el peor caso; práctico únicamente para n pequeños.
+- Ventajas:
+  - Devuelve la solución exacta y óptima para n < 12.
+  - Garantiza menor valor de corte global.
+- Desventajas:
+  - Crecimiento exponencial rápido.
+  - No es viable para gráficos medianos o grandes.
+- Uso: es el método preferido para n < 12, cuando se puede garantizar óptimo.
+
+Algoritmo heurístico (`backend/algorithms/heuristic.py`):
+- Paradigma: búsqueda local con reinicios aleatorios y reparación de grupos.
+- Funcionamiento:
+  - Inicializa una asignación aleatoria, pero fuerza que los primeros k nodos ocupen distintos grupos para evitar vacíos.
+  - Calcula el corte inicial y realiza movimientos locales sobre cada nodo.
+  - Para cada nodo i, evalúa el delta de mover i a otro grupo. El delta compara el peso de dependencias que se perderían internamente y el peso de dependencias que se ganarían externamente.
+  - Solo acepta movimientos que reducen el valor de corte y no dejan un grupo vacío.
+  - Si no hay mejora durante `max_no_improve` iteraciones, detiene la búsqueda local.
+  - Si faltan grupos usados al final, repara la asignación moviendo nodos con el menor aumento de corte posible.
+- Complejidad esperada: O(restarts * n^2 * k) por llamada, dado que la evaluación local revisa pares de nodos.
+- Ventajas:
+  - Escalable a tamaños mayores donde la búsqueda exhaustiva es impracticable.
+  - Produce soluciones válidas con exactamente k grupos.
+- Desventajas:
+  - No garantiza optimalidad global.
+  - Depende de aleatoriedad y no explora exhaustivamente todas las particiones.
+- Uso: elegido automáticamente para n ≥ 12.
+
+No existe un algoritmo separado de branch & bound completo más allá de la poda del exhaustive y la búsqueda local. El heurístico funciona como un `hill-climbing` con varios reinicios y reparación.
+
+
+5. RESTRICCIONES MATEMÁTICAS
+
+El sistema garantiza matemáticamente:
+- exactamente k grupos en la solución final,
+- ningún grupo vacío en la asignación final,
+- todos los nodos asignados a algún grupo,
+- particiones válidas (grupos disjuntos, cubren V).
+
+Validaciones implementadas en `backend/core/validator.py`:
+- `matrix` debe ser una lista no vacía.
+- La matriz debe ser cuadrada.
+- n debe ser al menos 2.
+- k debe ser entero y 2 ≤ k ≤ 5.
+- todos los valores deben ser numéricos.
+- los valores no deben ser negativos.
+- la diagonal de la matriz debe ser 0.
+- la matriz debe ser simétrica.
+
+Validaciones adicionales en `PartitionEngine.run()`:
+- la asignación devuelta debe tener longitud n.
+- todos los grupos deben estar en el rango [0, k-1].
+- deben existir exactamente k grupos distintos.
+
+Así se garantiza que solo se consideran particiones válidas de tipo k-partición no vacía.
+
+
+6. MÉTRICAS Y ANÁLISIS
+
+El sistema recopila métricas operativas en `PartitionEngine.run()`:
+- tiempo de ejecución total en `execution_time_ms`.
+- memoria pico en kilobytes usando `tracemalloc`.
+
+La calidad de la solución se mide con:
+- `cut_value`: valor de corte total de la partición.
+- `cut_edges`: lista de aristas que conectan nodos de grupos distintos.
+
+Limitaciones de las métricas actuales:
+- no hay contador explícito de soluciones exploradas o nodos de búsqueda visitados.
+- no se registra el número de podas realizadas en el algoritmo exhaustivo.
+- no se mide el uso de memoria específico de la estructura de datos del algoritmo.
+- no hay métricas de calidad comparativa ni benchmarking automático.
+
+Aun así, el sistema ofrece una métrica básica de rendimiento y evidencia la diferencia entre solución óptima (`optimal: true`) y aproximada.
+
+
+7. VISUALIZACIÓN DEL GRAFO
+
+El frontend construye el grafo a partir de la matriz de adyacencia:
+- cada componente es un nodo visual dibujado en un círculo.
+- cada peso positivo se representa como una arista entre nodos.
+- la etiqueta de cada arista muestra el peso de la dependencia.
+
+Cuando hay una partición disponible:
+- los nodos reciben colores distintos según su grupo.
+- las aristas cortadas se dibujan en rojo y con línea discontinua.
+- las aristas internas al mismo grupo se dibujan en gris sólido.
+
+Cada elemento visual representa:
+- nodo: componente, índice `C0`, `C1`, ...
+- color de nodo: grupo de partición
+- arista sólida gris: dependencia interna al grupo
+- arista roja discontinua: dependencia cortada entre grupos
+- etiqueta de peso: costo de dependencia entre dos nodos
+
+El frontend usa `drawGraphCanvas` en `frontend/js/graph.js` para renderizar esta vista y `renderPartitionedGraph` en `frontend/js/app.js`.
+
+
+8. ARQUITECTURA DEL SISTEMA
+
+El proyecto está organizado en dos capas principales:
+
+Backend:
+- `backend/app.py`: servidor Flask y punto de entrada principal.
+- `backend/api/routes.py`: define el endpoint `POST /api/partition` y la lógica de parseo/validación inicial.
+- `backend/core/validator.py`: reglas de validación de matriz y valor de k.
+- `backend/core/partition_engine.py`: orquesta la ejecución, elige el algoritmo, valida la solución y construye la respuesta JSON.
+- `backend/algorithms/exhaustive.py`: algoritmo exacto de búsqueda exhaustiva con poda.
+- `backend/algorithms/heuristic.py`: algoritmo aproximado de búsqueda local con reinicios.
+- `backend/core/metrics.py`: funciones auxiliares para calcular el valor de corte y las aristas cortadas.
+- `backend/core/export.py`: exporta resultados a JSON (no integrado en el flujo HTTP actual).
+- `backend/simple_server.py`: servidor HTTP alternativo básico con la misma ruta `/api/partition`.
+
+Frontend:
+- `frontend/index.html`: interfaz de usuario con entrada de matriz, selección de k y contenedores para resultados y gráficos.
+- `frontend/js/api.js`: cliente HTTP que llama al backend.
+- `frontend/js/app.js`: gestiona eventos de UI, lectura de CSV, envío de petición y renderización de gráficos.
+- `frontend/js/graph.js`: dibuja el grafo en canvas y colorea particiones.
+- `frontend/js/visualization.js`: construye el HTML de resultados y muestra la estructura de la partición.
+
+Flujo HTTP:
+- El frontend envía `POST /api/partition` con JSON.
+- El backend valida y ejecuta `PartitionEngine`.
+- El backend devuelve JSON con particiones, métricas y explicaciones.
+- El frontend renderiza la respuesta y construye la visualización.
+
+Responsabilidades:
+- `routes.py` se encarga del parseo y manejo de peticiones.
+- `PartitionEngine` se encarga de la lógica de negocio y evaluación de resultados.
+- `algorithms/*` implementan los métodos de particionamiento.
+- `metrics.py` calcula la función objetivo y las aristas cortadas.
+- `validator.py` asegura la validez de la entrada matemática.
+- el frontend presenta la interfaz y la representación visual.
+
+
+9. ESTADO ACTUAL DEL PROYECTO
+
+Funcionalidades existentes:
+- entrada de matrices CSV o texto plano.
+- validación completa de matrices cuadradas y simétricas.
+- algoritmo exacto exhaustivo para casos pequeños.
+- algoritmo heurístico para casos más grandes.
+- visualización de grafo inicial y particionado.
+- reporte de particiones, valor de corte, aristas cortadas, tiempo y memoria.
+- API REST básica funcional.
+- servidor Flask (`backend/app.py`) y servidor HTTP alternativo (`backend/simple_server.py`).
+
+Funcionalidades faltantes o incompletas:
+- no hay generación automática de grafos desde parámetros.
+- no hay módulo de análisis experimental integrado y reproducible.
+- la heurística es simple; faltan metaheurísticas como recocido simulado o algoritmos genéticos.
+- no hay métricas de conteo de estados explorados ni número de podas.
+- la exportación de resultados existe como función pero no se expone en la UI.
+- se limita k entre 2 y 5; no hay justificación para valores mayores.
+- no hay manejo de errores más avanzado ni validación en el frontend.
+- no hay un conjunto de pruebas unitarias accesible fuera del backend/test.
+
+El sistema está bastante completo para una primera versión de proyecto académico, pero aún requiere mejoras en análisis experimental, robustez, documentación de resultados y capacidad de escalado.
+
+
+10. CONCLUSIÓN TÉCNICA
+
+El sistema es sólido en su definición matemática: modela correctamente el problema de particionamiento como la minimización del valor de corte en un grafo ponderado. La representación de nodos como componentes, aristas como dependencias y el uso de una matriz simétrica son apropiados y consistentes.
+
+Algorítmicamente, la solución es correcta para el tamaño pequeño gracias al método exhaustivo, y ofrece una alternativa razonable para tamaños mayores con la heurística local.
+
+Aspectos destacados:
+- implementación clara del problema de cut-minimization.
+- separación de responsabilidades entre validación, motor de particionamiento y visualización.
+- interfaz de usuario que refleja particiones y aristas cortadas de forma comprensible.
+- uso de métricas de tiempo y memoria para evaluar ejecución.
+
+Aspectos a mejorar:
+- mayor robustez del análisis experimental y métricas de búsqueda.
+- integración de exportación de resultados y generación de dataset.
+- ampliación del soporte a valores de k mayores y grafos no completos.
+- formalización de un algoritmo branch & bound más explícito.
+
+En resumen, el sistema está bien alineado con el enunciado del proyecto como una solución de particionamiento de grafos basada en dependencias, aunque todavía es preferible para casos de tamaño moderado y requiere extensión para uso productivo o comparativas avanzadas.
