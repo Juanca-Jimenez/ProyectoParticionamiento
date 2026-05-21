@@ -31,6 +31,18 @@
         <input id="k-input" type="number" min="2" max="5" value="2" />
       </div>
       <div class="form-row">
+        <label for="default-matrix-select">Matrices predeterminadas</label>
+        <select id="default-matrix-select">
+          <option value="">-- Seleccionar --</option>
+          <option value="small">Pequeña (4-8 componentes)</option>
+          <option value="medium">Mediana (10-20 componentes)</option>
+          <option value="large">Grande (>=30 componentes)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <button id="use-default-button">Usar matriz predeterminada</button>
+      </div>
+      <div class="form-row">
         <label for="csv-file">Cargar CSV</label>
         <input id="csv-file" type="file" accept=".csv" />
       </div>

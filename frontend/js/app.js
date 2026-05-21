@@ -3,7 +3,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const csvFileInput = document.getElementById("csv-file");
   const matrixInput = document.getElementById("matrix-input");
   const kInput = document.getElementById("k-input");
+  const defaultSelect = document.getElementById("default-matrix-select");
+  const useDefaultButton = document.getElementById("use-default-button");
   let currentMatrix = null;
+
+  // Generate and store three default matrices (deterministic)
+  const defaultMatrices = generateDefaultMatrices();
+
+  // Fill selector description (no heavy DOM changes)
+  defaultSelect.addEventListener("change", () => {
+    // nothing for now; user must click 'Usar matriz predeterminada'
+  });
+
+  useDefaultButton.addEventListener("click", (e) => {
+    e.preventDefault();
+    const sel = defaultSelect.value;
+    if (!sel) {
+      alert("Selecciona una matriz predeterminada primero.");
+      return;
+    }
+    const csv = matrixToCsv(defaultMatrices[sel]);
+    matrixInput.value = csv;
+    displayInitialGraph();
+  });
 
   csvFileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
@@ -41,6 +63,47 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Parsed matrix:", matrix);
     currentMatrix = matrix;
     renderInitialGraph(matrix);
+  }
+
+  // Utility: convert matrix (array of arrays) to CSV string
+  function matrixToCsv(matrix) {
+    return matrix.map((row) => row.join(",")).join("\n");
+  }
+
+  // Deterministic pseudo-random generator (LCG)
+  function lcg(seed) {
+    let state = seed % 2147483647;
+    if (state <= 0) state += 2147483646;
+    return function () {
+      state = (state * 16807) % 2147483647;
+      return (state - 1) / 2147483646;
+    };
+  }
+
+  function generateSymmetricMatrix(n, density = 0.5, maxWeight = 10, seed = 12345) {
+    const rand = lcg(seed + n);
+    const mat = Array.from({ length: n }, () => Array(n).fill(0));
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (rand() < density) {
+          const w = Math.floor(rand() * (maxWeight + 1));
+          mat[i][j] = w;
+          mat[j][i] = w;
+        } else {
+          mat[i][j] = 0;
+          mat[j][i] = 0;
+        }
+      }
+    }
+    return mat;
+  }
+
+  function generateDefaultMatrices() {
+    return {
+      small: generateSymmetricMatrix(6, 0.8, 8, 101),
+      medium: generateSymmetricMatrix(14, 0.5, 12, 202),
+      large: generateSymmetricMatrix(30, 0.25, 15, 303),
+    };
   }
 
   runButton.addEventListener("click", async () => {
