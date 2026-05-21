@@ -7,9 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const useDefaultButton = document.getElementById("use-default-button");
   let currentMatrix = null;
 
-  // Generate and store three default matrices (deterministic)
-  const defaultMatrices = generateDefaultMatrices();
-
   // Fill selector description (no heavy DOM changes)
   defaultSelect.addEventListener("change", () => {
     // nothing for now; user must click 'Usar matriz predeterminada'
@@ -22,10 +19,12 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Selecciona una matriz predeterminada primero.");
       return;
     }
-    const csv = matrixToCsv(defaultMatrices[sel]);
+
+    const newMatrix = getDynamicDefaultMatrix(sel);
+    const csv = matrixToCsv(newMatrix);
     matrixInput.value = csv;
     displayInitialGraph();
-  });
+    });
 
   csvFileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
@@ -80,9 +79,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  function generateSymmetricMatrix(n, density = 0.5, maxWeight = 10, seed = 12345) {
-    const rand = lcg(seed + n);
+  function generateSymmetricMatrix(n, density = 0.5, maxWeight = 10,seed = null) {
+    const finalSeed = seed !== null ? seed : Date.now() + Math.random() * 1000000;
+    const rand = lcg(finalSeed);
     const mat = Array.from({ length: n }, () => Array(n).fill(0));
+    
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         if (rand() < density) {
@@ -98,12 +99,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return mat;
   }
 
-  function generateDefaultMatrices() {
-    return {
-      small: generateSymmetricMatrix(6, 0.8, 8, 101),
-      medium: generateSymmetricMatrix(14, 0.5, 12, 202),
-      large: generateSymmetricMatrix(30, 0.25, 15, 303),
-    };
+  function getDynamicDefaultMatrix(sizeType) {
+    switch(sizeType) {
+      case 'small':
+        // Pequeña: 4-8 componentes, densidad alta
+        const n = Math.floor(Math.random() * (8 - 4 + 1)) + 4;
+        return generateSymmetricMatrix(n, 0.8, 8);
+      case 'medium':
+        // Mediana: 10-20 componentes, densidad media
+        const n2 = Math.floor(Math.random() * (20 - 10 + 1)) + 10;
+        return generateSymmetricMatrix(n2, 0.5, 12);
+      case 'large':
+        // Grande: 30-50 componentes, densidad baja
+        const n3 = Math.floor(Math.random() * (50 - 30 + 1)) + 30;
+        return generateSymmetricMatrix(n3, 0.25, 15);
+      default:
+        return generateSymmetricMatrix(13, 0.5, 10);
+    }
   }
 
   runButton.addEventListener("click", async () => {
