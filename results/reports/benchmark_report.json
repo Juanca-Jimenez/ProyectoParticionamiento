@@ -1,0 +1,356 @@
+{
+  "description": "Reporte consolidado de pruebas experimentales de particionamiento de grafos.",
+  "runs": [
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "synthetic",
+      "n": 5,
+      "k": 3,
+      "execution_time_ms": 0.1145,
+      "memory_peak_kb": 1.219,
+      "cut_value": 10.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 5,
+      "k": 3,
+      "execution_time_ms": 9.2022,
+      "memory_peak_kb": 1.047,
+      "cut_value": 10.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "synthetic",
+      "n": 10,
+      "k": 3,
+      "execution_time_ms": 3.3105,
+      "memory_peak_kb": 1.688,
+      "cut_value": 22.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 10,
+      "k": 3,
+      "execution_time_ms": 21.9854,
+      "memory_peak_kb": 1.172,
+      "cut_value": 22.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 15,
+      "k": 3,
+      "execution_time_ms": 59.9318,
+      "memory_peak_kb": 1.383,
+      "cut_value": 45.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 20,
+      "k": 3,
+      "execution_time_ms": 79.5503,
+      "memory_peak_kb": 1.266,
+      "cut_value": 87.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 25,
+      "k": 3,
+      "execution_time_ms": 123.5172,
+      "memory_peak_kb": 1.367,
+      "cut_value": 84.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "synthetic",
+      "n": 30,
+      "k": 3,
+      "execution_time_ms": 142.1685,
+      "memory_peak_kb": 1.469,
+      "cut_value": 112.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "real (small_4x4.csv)",
+      "n": 4,
+      "k": 3,
+      "execution_time_ms": 0.0351,
+      "memory_peak_kb": 0.82,
+      "cut_value": 5.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "real (small_4x4.csv)",
+      "n": 4,
+      "k": 3,
+      "execution_time_ms": 3.555,
+      "memory_peak_kb": 0.828,
+      "cut_value": 5.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "real (medium_12x12.csv)",
+      "n": 12,
+      "k": 3,
+      "execution_time_ms": 23.8847,
+      "memory_peak_kb": 1.219,
+      "cut_value": 15.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "real (large_30x30.csv)",
+      "n": 30,
+      "k": 3,
+      "execution_time_ms": 147.9197,
+      "memory_peak_kb": 1.469,
+      "cut_value": 165.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 2,
+      "execution_time_ms": 0.0586,
+      "memory_peak_kb": 1.094,
+      "cut_value": 10.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 2,
+      "execution_time_ms": 11.0038,
+      "memory_peak_kb": 1.172,
+      "cut_value": 10.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 3,
+      "execution_time_ms": 1.2058,
+      "memory_peak_kb": 1.102,
+      "cut_value": 28.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 3,
+      "execution_time_ms": 20.5968,
+      "memory_peak_kb": 1.172,
+      "cut_value": 28.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 4,
+      "execution_time_ms": 29.3036,
+      "memory_peak_kb": 1.109,
+      "cut_value": 47.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 4,
+      "execution_time_ms": 22.7866,
+      "memory_peak_kb": 1.172,
+      "cut_value": 47.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 5,
+      "execution_time_ms": 700.2345,
+      "memory_peak_kb": 1.117,
+      "cut_value": 66.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n10",
+      "n": 10,
+      "k": 5,
+      "execution_time_ms": 42.6325,
+      "memory_peak_kb": 1.445,
+      "cut_value": 68.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n20",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 37.5419,
+      "memory_peak_kb": 1.359,
+      "cut_value": 21.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n20",
+      "n": 20,
+      "k": 3,
+      "execution_time_ms": 59.7699,
+      "memory_peak_kb": 1.266,
+      "cut_value": 43.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n20",
+      "n": 20,
+      "k": 4,
+      "execution_time_ms": 83.6718,
+      "memory_peak_kb": 1.266,
+      "cut_value": 74.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_n20",
+      "n": 20,
+      "k": 5,
+      "execution_time_ms": 104.3701,
+      "memory_peak_kb": 1.586,
+      "cut_value": 125.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_real_m12",
+      "n": 12,
+      "k": 2,
+      "execution_time_ms": 12.9498,
+      "memory_peak_kb": 1.195,
+      "cut_value": 8.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_real_m12",
+      "n": 12,
+      "k": 3,
+      "execution_time_ms": 22.8186,
+      "memory_peak_kb": 1.078,
+      "cut_value": 15.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_real_m12",
+      "n": 12,
+      "k": 4,
+      "execution_time_ms": 38.4175,
+      "memory_peak_kb": 1.078,
+      "cut_value": 23.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "quality_varying_k_real_m12",
+      "n": 12,
+      "k": 5,
+      "execution_time_ms": 39.9366,
+      "memory_peak_kb": 1.461,
+      "cut_value": 28.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 365.61,
+      "memory_peak_kb": 14.07,
+      "cut_value": 31.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 836.99,
+      "memory_peak_kb": 233.06,
+      "cut_value": 31.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 164.63,
+      "memory_peak_kb": 0.0,
+      "cut_value": 31.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 449.26,
+      "memory_peak_kb": 0.0,
+      "cut_value": 31.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 36,
+      "k": 2,
+      "execution_time_ms": 1263.69,
+      "memory_peak_kb": 24.04,
+      "cut_value": 23.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 12,
+      "k": 2,
+      "execution_time_ms": 262.37,
+      "memory_peak_kb": 1.22,
+      "cut_value": 22.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 47,
+      "k": 2,
+      "execution_time_ms": 1934.2,
+      "memory_peak_kb": 34.51,
+      "cut_value": 34.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "usuario",
+      "n": 8,
+      "k": 2,
+      "execution_time_ms": 2.75,
+      "memory_peak_kb": 1.02,
+      "cut_value": 23.0
+    },
+    {
+      "algorithm": "Heurística",
+      "dataset_type": "usuario",
+      "n": 20,
+      "k": 2,
+      "execution_time_ms": 347.11,
+      "memory_peak_kb": 13.37,
+      "cut_value": 13.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "usuario",
+      "n": 4,
+      "k": 2,
+      "execution_time_ms": 0.0,
+      "memory_peak_kb": 1.15,
+      "cut_value": 3.0
+    },
+    {
+      "algorithm": "Exhaustivo",
+      "dataset_type": "usuario",
+      "n": 6,
+      "k": 2,
+      "execution_time_ms": 0.0,
+      "memory_peak_kb": 0.99,
+      "cut_value": 7.0
+    }
+  ]
+}

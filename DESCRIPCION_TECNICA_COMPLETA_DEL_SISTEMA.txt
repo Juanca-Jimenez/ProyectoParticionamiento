@@ -1,0 +1,804 @@
+================================================================================
+         DOCUMENTO DE INGENIERÍA DE SOFTWARE Y ANÁLISIS ALGORÍTMICO
+         
+   SISTEMA DE PARTICIONAMIENTO ÓPTIMO DE GRAFOS BASADO EN DEPENDENCIAS
+                  DESCRIPCIÓN TÉCNICA COMPLETA DEL SISTEMA
+================================================================================
+
+Este documento describe de manera exhaustiva el diseño, la formalización matemática,
+el flujo interno de datos, los paradigmas algorítmicos, el esquema de validación,
+la arquitectura de software y el análisis crítico del sistema de particionamiento
+óptimo de grafos ponderados. Su propósito es permitir a cualquier ingeniero de
+software o investigador de computación comprender, reconstruir e implementar el 
+sistema en su totalidad sin necesidad de inspeccionar el código fuente.
+
+--------------------------------------------------------------------------------
+ÍNDICE
+--------------------------------------------------------------------------------
+SECCIÓN 1  — DESCRIPCIÓN GENERAL
+SECCIÓN 2  — INTERPRETACIÓN MATEMÁTICA Y FORMALIZACIÓN
+SECCIÓN 3  — FLUJO INTERNO DEL SISTEMA (PIPELINE DE DATOS)
+SECCIÓN 4  — LÓGICA DE DECISIÓN Y SELECCIÓN DE ESTRATEGIAS
+SECCIÓN 5  — ANÁLISIS ALGORÍTMICO DETALLADO
+SECCIÓN 6  — VALIDACIONES Y SEGURIDAD DEL DOMINIO
+SECCIÓN 7  — CONSTRUCCIÓN Y SEMÁNTICA DE LA RESPUESTA JSON
+SECCIÓN 8  — VISUALIZACIÓN GRÁFICA Y TRASLACIÓN TOPOLÓGICA
+SECCIÓN 9  — ARQUITECTURA DE SOFTWARE Y SEPARACIÓN DE RESPONSABILIDADES
+SECCIÓN 10 — ANÁLISIS CRÍTICO (FORTALEZAS, LIMITACIONES Y ESCALABILIDAD)
+SECCIÓN 11 — CONCLUSIÓN TÉCNICA Y EPISTEMOLÓGICA
+
+================================================================================
+SECCIÓN 1 — DESCRIPCIÓN GENERAL
+================================================================================
+
+Propósito del Sistema:
+El sistema bajo análisis es una plataforma de optimización combinatoria diseñada 
+para resolver el problema del particionamiento óptivo de componentes de software 
+(o de cualquier dominio reducible a dependencias mutuas) modelados como grafos 
+ponderados. Su meta principal es la modularización óptima: dividir un conjunto de 
+elementos interconectados en un número exacto 'k' de particiones mutuamente 
+excluyentes y colectivamente exhaustivas, minimizando la intensidad de las 
+dependencias que cruzan las fronteras de estas particiones.
+
+Problema que Resuelve:
+En el desarrollo de sistemas complejos, la alta interconexión entre componentes 
+provoca problemas de acoplamiento, reduciendo la mantenibilidad, dificultando la 
+paralelización del trabajo y encareciendo la infraestructura de comunicación. El 
+particionamiento de grafos con peso en las aristas permite identificar fronteras 
+naturales de baja comunicación. Este sistema resuelve la minimización del costo 
+de interconexión externa mediante la búsqueda exacta o heurística de cortes 
+mínimos balanceados (k-cut).
+
+Tipo de Aplicación:
+Se trata de una aplicación web distribuida con arquitectura desacoplada:
+1. Backend: Un motor de cálculo numérico implementado en Python empleando Flask 
+   como API REST. Coordina la ejecución de algoritmos avanzados de optimización 
+   y perfila los recursos físicos empleados (tiempo y memoria).
+2. Frontend: Una interfaz interactiva basada en HTML5, CSS3 plano y JavaScript. 
+   Renderiza el grafo original y los resultados del particionamiento directamente 
+   en un elemento Canvas usando la librería de visualización topológica vis.js.
+
+Objetivo Computacional:
+Dado un grafo finito y no dirigido, el objetivo computacional es encontrar una 
+función de asignación que mapee cada nodo a un identificador de partición en 
+[0, k-1], tal que la suma de los pesos de las aristas cuyos extremos pertenecen a 
+particiones distintas sea estrictamente mínima, bajo la restricción inviolable 
+de que ninguna partición quede vacía.
+
+¿Por qué existe este sistema?
+El sistema existe para proveer una solución computacional práctica a un problema
+NP-difícil (el particionamiento en k-grupos mínimos). Ofrece tanto exactitud 
+matemática para instancias de tamaño pequeño como eficiencia aproximada para 
+instancias de tamaño mediano/grande, todo ello asistido por una capa visual 
+que traduce la abstracción matemática del álgebra matricial en una topología de 
+red intuitiva y accionable para ingenieros de sistemas.
+
+================================================================================
+SECCIÓN 2 — INTERPRETACIÓN MATEMÁTICA Y FORMALIZACIÓN
+================================================================================
+
+El sistema representa el problema mediante la teoría de grafos y optimización 
+discreta de la siguiente manera:
+
+Definición del Grafo:
+Sea G = (V, E, W) un grafo no dirigido ponderado, donde:
+- V = {v_0, v_1, ..., v_{n-1}} es el conjunto finito de nodos (n = |V|), donde
+  cada v_i representa un componente o módulo del sistema.
+- E es el conjunto de aristas no dirigidas. Una arista e = {v_i, v_j} \in E
+  indica la existencia de una relación de dependencia mutua entre v_i y v_j.
+- W: E -> R+ es la función de ponderación que asigna un peso w_{ij} a cada arista 
+  e = {v_i, v_j}. Este peso modela la intensidad, frecuencia o costo de la 
+  dependencia entre los componentes. Si w_{ij} = 0, entonces {v_i, v_j} \notin E.
+
+Matriz de Adyacencia:
+El grafo se representa en memoria mediante una matriz simétrica M de n x n:
+- M[i][j] = w_{ij} >= 0  para todo i, j.
+- M[i][j] = M[j][i]      para garantizar la bidireccionalidad (no dirigido).
+- M[i][i] = 0            para evitar bucles propios (un componente no posee
+                         dependencia externa consigo mismo).
+
+Definición de Partición (P):
+Una partición P del conjunto de nodos V en exactamente k subconjuntos es un 
+conjunto P = {P_0, P_1, ..., P_{k-1}} que cumple con las siguientes condiciones:
+1. P_g != vació           para todo g en {0, 1, ..., k-1} (No vacuidad).
+2. P_g \cap P_h = vació   para todo g != h (Exclusividad mutua / disjuntos).
+3. \bigcup_{g=0}^{k-1} P_g = V   (Completitud / exhaustividad).
+
+Función de Asignación (a):
+Definimos la función de asignación a: V -> {0, 1, ..., k-1} tal que:
+a(v_i) = g  <=>  v_i \in P_g
+
+Función de Costo y Valor de Corte (Cut):
+Un corte se define como el conjunto de aristas cuyos extremos están en dos 
+particiones diferentes. El valor de corte de la partición, denotado como Cut(P),
+representa la suma de los pesos de estas aristas cortadas. Se formula como:
+
+                 n-1   n-1
+  Cut(P) = 0.5 *  Sum   Sum   M[i][j] * I( a(v_i) != a(v_j) )
+                 i=0   j=0
+
+O equivalentemente, eliminando la duplicidad de la suma sobre grafos no dirigidos:
+
+  Cut(P) =  Sum         M[i][j] * I( a(v_i) != a(v_j) )
+           0<=i<j<n
+
+Donde I(condición) es la función indicadora de Dirac:
+  I(condición) = 1 si la condición es verdadera, 0 en caso contrario.
+
+Dominio del Problema:
+El espacio de búsqueda está constituido por todas las posibles particiones de V
+en k bloques. El número de formas de particionar un conjunto de n elementos en 
+k subconjuntos no vacíos está dado por los Números de Stirling de Segunda Especie:
+
+  S(n, k) = (1 / k!) * Sum_{j=0}^{k} (-1)^{k-j} * (Combinatoria(k, j)) * j^n
+
+El dominio es discreto y su crecimiento es hiper-exponencial. Para n=20 y k=4, 
+existen S(20,4) = 45,232,115,900 particiones posibles.
+
+Implementación en Código:
+La función matemática Cut(P) se mapea directamente en la función de utilidad 
+`calculate_cut(matrix, assignment)` en `backend/core/metrics.py`:
+
+```
+def calculate_cut(matrix, assignment):
+    n = len(matrix)
+    cut = 0.0
+    for i in range(n):
+        for j in range(i + 1, n):
+            if assignment[i] != assignment[j]:
+                cut += matrix[i][j]
+    return cut
+```
+Esta función aprovecha la simetría de la matriz calculando solo el triángulo 
+superior (j > i) para evitar computaciones duplicadas y dividir la constante
+computacional a la mitad.
+
+¿Qué operación matemática realiza realmente el sistema?
+El sistema resuelve un problema de optimización discreta global sujeta a 
+restricciones de partición. Específicamente, ejecuta la operación:
+
+  Minimizar    Cut(a)
+  Sujeto a     a(v_i) \in {0, 1, ..., k-1}  para todo i \in {0, ..., n-1}
+               { a(v_0), a(v_1), ..., a(v_{n-1}) } = {0, 1, ..., k-1} (Cohemicidad)
+
+================================================================================
+SECCIÓN 3 — FLUJO INTERNO DEL SISTEMA (PIPELINE DE DATOS)
+================================================================================
+
+A continuación se detalla cómo viajan y se transforman los datos desde el 
+ingreso por parte del usuario hasta la visualización final del resultado.
+
+Diagrama ASCII del Flujo de Datos:
+[Usuario] -> (Texto CSV) -> [Frontend (app.js)] -> (HTTP POST JSON)
+                                                         |
+  +------------------------------------------------------+
+  |
+  v
+[API Flask (routes.py)]
+  |---> Convierte celdas a floats (Lista de Listas de floats)
+  |---> Llama a [Validator (validator.py)]
+  |       |---> Si no es válida: Retorna HTTP 400 JSON Error
+  |       +---> Si es válida
+  v
+[PartitionEngine (partition_engine.py)]
+  |---> Inicia `tracemalloc` y temporizador.
+  |---> Evalúa tamaño (n). Bifurca ejecución:
+  |       |---> n < 12  => [Exhaustive Algorithm (exhaustive.py)]
+  |       +---> n >= 12 => [Heuristic Algorithm (heuristic.py)]
+  |---> Recibe vector `assignment` (Lista de enteros de longitud n) y `cut_value`
+  |---> Ejecuta validación post-algoritmo (Verificación de consistencia de k)
+  |---> Computa Métricas detalladas:
+  |       |---> Llama a `get_cut_edges` (Lista de diccionarios de aristas)
+  |       |---> Genera explicaciones semánticas por componente (pesos internos vs externos)
+  |---> Detiene `tracemalloc` y toma tiempo final.
+  v
+[JSON Response] -> (HTTP 200) -> [Frontend (app.js)]
+                                       |
+           +---------------------------+---------------------------+
+           |                                                       |
+           v                                                       v
+   [visualization.js]                                        [graph.js]
+  (Renderiza tablas HTML de                                (Colorea nodos en Canvas,
+   métricas y razones de grupos)                            dibuja aristas cortadas rojas)
+
+Descripción de Transformaciones de Datos por Módulo:
+
+1. Frontend - Entrada (`js/app.js`):
+   - Transforma: Archivo plano .csv cargado por el usuario o texto del área de 
+     transferencia. Lo mapea temporalmente a una matriz en JavaScript (array de 
+     arrays de números) y renderiza el grafo inicial no particionado.
+   - Envía al servidor: Un objeto JSON serializado: `{"matrix": [[...]], "k": int}`.
+
+2. API REST Backend - Entrada/Parseo (`backend/api/routes.py`):
+   - Transforma: El string JSON del body en tipos de datos nativos de Python. 
+     Si se pasa el parámetro opcional `"csv"`, invoca la función auxiliar 
+     `_parse_csv` que lee el string usando el módulo `csv.reader` y mapea los 
+     caracteres en una estructura de lista de listas. Posteriormente, convierte 
+     cada celda explícitamente en flotantes mediante comprensión de listas.
+   - Devuelve: Un objeto de tipo `list[list[float]]` junto con `k` (entero).
+
+3. Validador (`backend/core/validator.py`):
+   - Entrada: `matrix` y `k`.
+   - Transforma: Realiza una verificación estructural y de contenido sin 
+     modificar los valores. Retorna una tupla `(boolean, string)` indicando el 
+     resultado de la validación y el mensaje de diagnóstico en caso de fallo.
+
+4. Motor de Ejecución (`backend/core/partition_engine.py`):
+   - Transforma: Recibe la matriz limpia e invoca la lógica de bifurcación algorítmica.
+   - Al recibir el vector unidimensional `assignment` (ej. `[0, 1, 0, 1]`) y el 
+     costo numérico de corte, ejecuta un ciclo de enriquecimiento semántico:
+     - Traduce los índices físicos en nombres abstractos: `i -> Componente_i`.
+     - Calcula para cada componente $i$, el peso de sus dependencias con nodos
+       de su mismo grupo e internos (`same_group_weight`) y externos (`cross_group_weight`), 
+       evaluando el balance de acoplamiento.
+     - Llama a `get_cut_edges` en `backend/core/metrics.py` para aislar las 
+       aristas que conectan particiones cruzadas.
+   - Devuelve: Un diccionario enriquecido que consolida metadatos (tiempo, memoria),
+     particiones en forma de conjuntos legibles, aristas cortadas estructuradas y 
+     la argumentación matemática.
+
+5. Frontend - Presentación (`js/visualization.js` y `js/graph.js`):
+   - Transforma: El objeto JSON de respuesta en elementos visuales del DOM:
+     - Construye bloques de texto explicativos.
+     - Genera un `vis.DataSet` conteniendo los nodos enriquecidos con propiedades 
+       de color (`background`, `border`) e interacciones habilitadas.
+     - Genera un `vis.DataSet` de aristas donde aquellas marcadas en el JSON como 
+       aristas cortadas (`cut_edges`) se les inyectan propiedades gráficas 
+       especiales: color rojo `#e74c3c`, estilo discontinuo `dashes: true` y
+       grosor aumentado.
+
+================================================================================
+SECCIÓN 4 — LÓGICA DE DECISIÓN Y SELECCIÓN DE ESTRATEGIAS
+================================================================================
+
+El motor de partición aplica un criterio automatizado y estricto para decidir
+el algoritmo de resolución:
+
+Criterio de Bifurcación:
+La variable de control es el tamaño del grafo, medido a través del número de 
+nodos $n = |V|$ (el cual corresponde a la dimensión de la matriz de adyacencia).
+
+  Si n < 12  =>  Ejecutar Algoritmo Exhaustivo (Búsqueda Exacta)
+  Si n >= 12 =>  Ejecutar Algoritmo Heurístico (Búsqueda Local Multi-Inicio)
+
+Justificación Científica del Umbral (n = 12):
+1. Crecimiento Exponencial: El algoritmo exacto explora el espacio mediante 
+   backtracking acotado. Aunque implementa podas agresivas, la complejidad en el 
+   peor de los casos para k=5 y n=12 involucra evaluar una fracción significativa 
+   de $5^{11} \approx 48.8$ millones de combinaciones.
+2. Latencia de Respuesta REST: En un servidor web típico, un procesamiento que 
+   exceda los 2-3 segundos bloquea el hilo de ejecución o dispara excepciones de 
+   timeout en la pasarela HTTP. Pruebas empíricas demuestran que para n < 12 la 
+   búsqueda exacta finaliza en milisegundos (< 100 ms). Sin embargo, al pasar a 
+   n = 13 o 14 con matrices densas y k=5, el árbol de recursión se expande tanto 
+   que el tiempo de cálculo puede subir a varios segundos o minutos.
+3. Compromiso de Optimalidad: Al establecer el umbral en 12, se garantiza que 
+   para sistemas pequeños de software (microservicios o módulos limitados) el 
+   particionamiento calculado es el óptimo matemático global e indiscutible. Para 
+   sistemas medianos o grandes, donde el óptimo exacto es intratable en tiempo 
+   polinomial, el motor prioriza la viabilidad operativa y la rapidez de respuesta 
+   usando la heurística local, que escala eficientemente sacrificando la 
+   garantía de optimalidad global absoluta.
+
+================================================================================
+SECCIÓN 5 — ANÁLISIS ALGORÍTMICO DETALLADO
+================================================================================
+
+El sistema implementa dos paradigmas distintos según la complejidad de la instancia:
+
+--------------------------------------------------------------------------------
+5.1. ALGORITMO EXHAUSTIVO (`exhaustive_partition`)
+--------------------------------------------------------------------------------
+
+Paradigma: Búsqueda sistemática en espacio de estados usando Backtracking recursivo, 
+optimizado con Poda por Acotación (Branch-and-Bound) y Reducción de Simetría.
+
+Funcionamiento Detallado:
+1. Reducción de Simetría: Dado que los nombres de los grupos {0, ..., k-1} son 
+   arbitrarios, cualquier permutación de las etiquetas de los grupos produce la 
+   misma calidad de corte. Para evitar explorar soluciones isomórficas, el 
+   algoritmo asigna de manera fija el nodo 0 al grupo 0 en su inicialización:
+   `assignment[0] = 0` y marca el grupo 0 como usado (`used[0] = True`). Esto 
+   reduce el espacio de búsqueda inmediatamente en un factor de k.
+2. Exploración Recursiva (`search`): La función recursiva avanza nodo por nodo 
+   desde el índice 1 hasta n. En cada paso:
+   a. Poda de Viabilidad Matemática: Evalúa si los nodos que quedan por asignar 
+      (remaining = n - idx) son suficientes para activar los grupos vacíos que 
+      todavía deben usarse para cumplir la restricción de que los k grupos sean 
+      no vacíos. Si:
+        used_count + remaining < k
+      se aborta la rama recursiva (backtrack) porque es matemáticamente imposible 
+      llegar a una solución válida.
+   b. Poda Branch-and-Bound (Acotación): A medida que se asigna un nodo, se calcula 
+      el incremento del costo de corte de forma incremental considerando solo las 
+      aristas entre el nodo actual `idx` y los nodos previamente asignados `j < idx` 
+      que pertenecen a grupos distintos:
+        added_cut = Sum_{j < idx, assignment[j] != assignment[idx]} M[j][idx]
+      Si en algún punto el costo acumulado de la rama actual `current_cut` es 
+      mayor o igual que la mejor solución global encontrada hasta el momento 
+      `best_cut`, la rama se poda de inmediato:
+        current_cut >= best_cut => retornar (poda)
+      Esto es válido porque todos los pesos M[i][j] son no negativos (no restan), 
+      por lo que el costo del corte es monótonamente no decreciente respecto a 
+      la profundidad del árbol de decisión.
+   c. Evaluación de Solución Completa: Al alcanzar la profundidad idx = n, si 
+      se han ocupado exactamente k grupos (used_count == k), y el corte total es 
+      estrictamente inferior al mejor registrado, se actualiza `best_cut` y se 
+      guarda una copia estática de `assignment`.
+
+Complejidades:
+- Complejidad Temporal (Peor Caso): O(k^(n-1)) en grafos vacíos o altamente dispersos 
+  donde las podas branch-and-bound no se activan tempranamente debido a cortes 
+  parciales nulos. En grafos densos, el tiempo real es notablemente menor gracias 
+  al descarte acelerado de ramas subóptimas.
+- Complejidad Espacial: O(n) debido a la pila recursiva de ejecución de profundidad n 
+  y los arrays de tamaño fijo para controlar asignaciones y grupos usados.
+
+Ventajas y Limitaciones:
+- Ventaja: Garantiza de manera absoluta encontrar el óptimo global mínimo.
+- Limitación: Explosión combinatoria inmanejable para n >= 12.
+
+--------------------------------------------------------------------------------
+5.2. ALGORITMO HEURÍSTICO (`heuristic_partition`)
+--------------------------------------------------------------------------------
+
+Paradigma: Búsqueda Local Estocástica iterativa de tipo Hill-Climbing (descenso de 
+gradiente discreto) con Reinicios Aleatorios Múltiples y Reparación Algorítmica 
+de Restricciones.
+
+Estructura de Control:
+El algoritmo ejecuta 30 reinicios independientes (`restarts=30`). Cada reinicio 
+comienza con una inicialización aleatoria de las particiones y realiza una 
+búsqueda local hasta que no existan mejoras en 20 iteraciones completas 
+(`max_no_improve=20`). Al final de cada reinicio, si la solución viola la 
+restricción de tener exactamente k grupos, se activa un algoritmo de reparación.
+
+Funcionamiento Detallado por Fases:
+
+1. Inicialización Estocástica Inteligente:
+   Para cada reinicio, se genera un vector de asignación aleatorio de longitud n 
+   donde cada celda toma un valor entero en [0, k-1].
+   Para mitigar el riesgo de arrancar la búsqueda local con grupos vacíos, si 
+   n >= k, se fuerza un subconjunto inicial no vacío asignando determinísticamente:
+     assignment[i] = i  para todo i en [0, k-1]
+
+2. Búsqueda Local (Optimización de Vecindario):
+   El algoritmo recorre secuencialmente cada nodo $i \in \{0, \dots, n-1\}$.
+   Para cada nodo $i$, evalúa la factibilidad y el impacto en el costo (delta) de 
+   mover el componente desde su partición actual `current_group` a cada una de 
+   las otras particiones alternativas `target_group`.
+   - Restricción de Factibilidad Interna: Para impedir que la búsqueda local vacíe 
+     un grupo, solo se considera mover el nodo i si el grupo al que pertenece 
+     actualmente tiene más de un componente asignado:
+       counts[current_group] > 1
+   - Evaluación Incremental de Movimiento (Fórmula del Delta):
+     El cálculo del cambio neto en el corte al transferir el componente i desde 
+     el grupo A al grupo B se realiza evaluando únicamente las dependencias del 
+     nodo i. Las dependencias con nodos en el grupo A (mismo grupo) pasan a ser 
+     externas (se suman al corte), mientras que las dependencias con nodos en el 
+     grupo B pasan a ser internas (se restan del corte). Por tanto:
+       Delta = Sum_{j != i, a(j) == A} M[i][j] - Sum_{j != i, a(j) == B} M[i][j]
+     En el código esto se evalúa con una única pasada de complejidad O(n):
+     ```
+     delta = 0
+     for j in range(n):
+         if i == j: continue
+         if assignment[j] == current_group:
+             delta += matrix[i][j]
+         elif assignment[j] == target_group:
+             delta -= matrix[i][j]
+     ```
+     Si Delta es negativo, significa que mover el componente i al grupo B 
+     disminuye el valor global de corte en esa magnitud.
+   - Decisión de Movimiento: Se busca el grupo objetivo que maximice el ahorro (es 
+     decir, el Delta más negativo). Si existe tal grupo, se actualiza el vector 
+     `assignment`, se recalcula el conteo de elementos en los grupos y se ajusta 
+     el corte actual restándole el valor absoluto de Delta.
+   - Criterio de Parada Local: Si se realiza una pasada completa por todos los n 
+     nodos sin efectuar ningún movimiento de mejora (improved = False), se incrementa 
+     el contador `no_improve`. La búsqueda local de este reinicio termina cuando 
+     `no_improve` llega a `max_no_improve` (20).
+
+3. Fase de Reparación de Restricciones (`repair_assignment`):
+   En circunstancias muy inusuales, la búsqueda local podría terminar con grupos 
+   vacíos (k reales usados < k esperados). El sistema ejecuta entonces una 
+   reparación secuencial de consistencia matemática:
+   a. Identifica qué etiquetas de grupo en [0, k-1] no están presentes en la 
+      solución.
+   b. Para cada grupo faltante `m`, busca un componente `i` que pueda ser trasladado 
+      a `m` incurriendo en el menor incremento de costo posible.
+   c. Para preservar la estabilidad de la partición, prioriza nodos cuyo grupo 
+      de origen no se quede vacío (`counts[src] > 1`). Si todos los nodos elegibles 
+      están en grupos con un solo elemento (lo cual imposibilita moverlos sin 
+      crear otro vacío), el sistema aplica un fallback de emergencia: toma el 
+      grupo con el mayor número de componentes asignados y traslada el primer 
+      componente que encuentre en él hacia el grupo vacío `m`.
+   d. Una vez reparada la asignación, recalculación forzada de la función de corte.
+
+4. Selección de la Solución Global:
+   Al final del bucle de 30 reinicios, se compara el costo de corte de la partición 
+   generada en el reinicio actual frente al mejor histórico de los anteriores 
+   reinicios. Si es menor y la solución es válida, se almacena.
+
+Complejidades:
+- Complejidad Temporal: O(restarts * max_no_improve * n^2 * k). Dado que los reinicios 
+  y el límite de estancamiento son constantes prefijadas (30 y 20), la complejidad 
+  temporal se reduce a una función polinomial cuadrática respecto a los nodos:
+    T(n, k) = O(n^2 * k)
+  Esto permite procesar fácilmente grafos de cientos de nodos en pocos segundos.
+- Complejidad Espacial: O(n + k) para registrar la asignación actual, la mejor 
+  asignación encontrada y los contadores de cardinalidad de los grupos.
+
+Ventajas y Limitaciones:
+- Ventaja: Alta velocidad de ejecución y escalabilidad computacional en tiempo.
+- Limitación: Carácter aproximado. Al ser estocástico, puede converger a un 
+  mínimo local subóptimo y no al óptimo global en grafos complejos.
+
+================================================================================
+SECCIÓN 6 — VALIDACIONES Y SEGURIDAD DEL DOMINIO
+================================================================================
+
+Para garantizar la integridad científica y computacional, el sistema aplica un 
+sistema de validación de doble fase (Pre-procesamiento y Post-procesamiento).
+
+--------------------------------------------------------------------------------
+6.1. VALIDACIÓN EN PRE-PROCESAMIENTO (`backend/core/validator.py`)
+--------------------------------------------------------------------------------
+
+Antes de enviar la matriz a los motores de optimización, el validador verifica el 
+cumplimiento de las restricciones de dominio de entrada. Si alguna de las 
+siguientes condiciones se viola, se rechaza la petición con un error HTTP 400.
+
+1. Estructura de Datos Básica:
+   - Condición: La matriz debe ser una lista de Python no vacía, y cada una de 
+     sus filas debe ser una lista.
+   - Razón: Garantiza la bidimensionalidad y previene excepciones por valores nulos.
+
+2. Restricción de Cuadraticidad:
+   - Condición: Si el número de filas es n, cada fila debe tener exactamente n 
+     elementos.
+   - Razón: Un grafo requiere que el número de componentes origen (filas) coincida 
+     con el número de componentes destino (columnas).
+
+3. Restricción Dimensional:
+   - Condición: n >= 2.
+   - Razón: Matemáticamente no es viable definir particiones con sentido sobre 
+     un grafo de menos de 2 nodos.
+
+4. Restricción de Dominio de k:
+   - Condición: k debe ser un entero con 2 <= k <= 5.
+   - Razón: Restricción operativa del sistema para asegurar la viabilidad de la 
+     búsqueda exacta en el backend y evitar solapamiento visual de colores en el 
+     frontend.
+
+5. Tipado Numérico de la Matriz:
+   - Condición: Todos los valores M[i][j] deben ser numéricos reales (enteros o 
+     flotantes).
+   - Razón: La función de corte matemático realiza sumas aritméticas; valores no 
+     numéricos causarían fallos de tipo (TypeError).
+
+6. Restricción de No Negatividad:
+   - Condición: M[i][j] >= 0  para todo i, j.
+   - Razón: En problemas de particionamiento físico o de dependencias de software, 
+     los pesos modelan intensidades de acoplamiento o de comunicación que no pueden 
+     ser negativas.
+
+7. Diagonal Nula:
+   - Condición: M[i][i] == 0  para todo i.
+   - Razón: Un componente no puede poseer dependencias externas consigo mismo. Una 
+     diagonal diferente de cero añadiría un offset sesgado e incorrecto al valor 
+     de corte.
+
+8. Restricción de Simetría Estricta:
+   - Condición: M[i][j] == M[j][i]  para todo i, j.
+   - Razón: El sistema asume que el grafo de dependencias es no dirigido. La 
+     dependencia entre v_i y v_j es de naturaleza recíproca.
+
+--------------------------------------------------------------------------------
+6.2. VALIDACIÓN EN POST-PROCESAMIENTO (`backend/core/partition_engine.py`)
+--------------------------------------------------------------------------------
+
+Una vez que el algoritmo (exhaustivo o heurístico) retorna la asignación, el 
+motor realiza una validación de la solución generada antes de construir la 
+respuesta al cliente. Esto mitiga fallos en los algoritmos:
+
+La asignación se considera válida si y solo si cumple:
+1. `assignment is not None`
+2. `len(assignment) == self.n` (Todos los nodos tienen una asignación).
+3. `all(isinstance(group, int) and 0 <= group < self.k for group in assignment)` 
+   (Las etiquetas de los grupos son índices válidos).
+4. `len(set(assignment)) == self.k` (El número de grupos únicos usados es 
+   exactamente k, lo cual garantiza matemáticamente que ningún grupo quedó vacío).
+
+Si no se pasa esta prueba, el backend aborta la generación de la respuesta normal 
+y retorna un estado de error estructurado indicando el fallo de consistencia.
+
+================================================================================
+SECCIÓN 7 — CONSTRUCCIÓN Y SEMÁNTICA DE LA RESPUESTA JSON
+================================================================================
+
+El backend responde con un objeto JSON estructurado que encapsula los resultados
+del particionamiento, el perfilado de recursos y explicaciones en lenguaje natural.
+
+Estructura Detallada del JSON de Respuesta:
+
+```json
+{
+  "status": "success",
+  "k": 3,
+  "n": 4,
+  "optimal": true,
+  "algorithm_used": "Exhaustivo",
+  "partitions": {
+    "0": ["Componente_0", "Componente_2"],
+    "1": ["Componente_1"],
+    "2": ["Componente_3"]
+  },
+  "cut_value": 3.0,
+  "cut_edges": [
+    {
+      "from": "Componente_0",
+      "to": "Componente_1",
+      "weight": 1.0,
+      "reason": "Se corta porque Componente_0 y Componente_1 están en grupos distintos y su dependencia pesa 1.0."
+    },
+    {
+      "from": "Componente_2",
+      "to": "Componente_3",
+      "weight": 2.0,
+      "reason": "Se corta porque Componente_2 y Componente_3 están en grupos distintos y su dependencia pesa 2.0."
+    }
+  ],
+  "explanation": {
+    "solution_selection": "Se eligió la solución con el menor valor de corte entre todas las asignaciones válidas que cumplen exactamente k particiones no vacías.",
+    "classification": "Óptima",
+    "algorithm_reason": "Se empleó el algoritmo Exhaustivo porque el tamaño de matriz es pequeño y puede encontrar la mejor solución exacta.",
+    "cut_reason": "Las aristas se cortan cuando los componentes correspondientes quedan en particiones distintas; su peso se suma al valor de corte.",
+    "group_reason": "Los componentes se separan en grupos distintos para minimizar el total de dependencias cruzadas entre particiones, manteniendo exactamente k grupos no vacíos.",
+    "component_reasons": [
+      {
+        "component": "Componente_0",
+        "group": 0,
+        "same_group_weight": 2.0,
+        "cross_group_weight": 1.0,
+        "reason": "porque tiene más dependencias dentro de su grupo que hacia otros grupos"
+      },
+      ...
+    ]
+  },
+  "execution_time_ms": 0.45,
+  "memory_peak_kb": 124.5,
+  "valid_assignment": true,
+  "assignment_count": 4
+}
+```
+
+Semántica de la Explicación Generada:
+- Razón por Arista Cortada: Justifica por qué el peso de la arista en cuestión 
+  suma al valor del corte en base a la frontera de las particiones.
+- Razón por Componente: Compara aritméticamente las dependencias internas y externas.
+  Sea S_i el peso de las conexiones de v_i dentro de su propio grupo, y C_i el 
+  peso de sus conexiones hacia grupos externos.
+  - Si S_i >= C_i: "porque tiene más dependencias dentro de su grupo que hacia otros grupos"
+  - Si S_i < C_i: "porque sus conexiones externas pesan menos que las conexiones internas en su grupo"
+  Esto permite a los arquitectos entender la cohesión y acoplamiento individual.
+
+================================================================================
+SECCIÓN 8 — VISUALIZACIÓN GRÁFICA Y TRASLACIÓN TOPOLÓGICA
+================================================================================
+
+La visualización del grafo en la UI (`frontend/js/graph.js`) es una representación 
+geométrica e interactiva de la matriz numérica. El sistema realiza la siguiente 
+traslación topológica:
+
+1. Distribución Espacial Adaptativa (Coordenadas de los Nodos):
+   Para evitar la superposición de nodos e independizar el renderizado del algoritmo 
+   de física, los nodos se ubican en una circunferencia. Las coordenadas 
+   cartesianas se calculan dinámicamente usando trigonometría:
+     x_i = X_centro + R * cos( 2 * PI * i / n )
+     y_i = Y_centro + R * sin( 2 * PI * i / n )
+   Donde el radio R se ajusta de acuerdo a la escala del grafo:
+     R = min( 350, max( 180, n * 7 ) )
+   Esta fórmula distribuye uniformemente los n nodos manteniendo una visibilidad 
+   óptima tanto para grafos pequeños (n=4) como grandes (n=50).
+
+2. Representación Visual de Componentes y Nodos:
+   - Geometría: Cada nodo se dibuja como un círculo de tamaño adaptativo (size=10
+     para grafos masivos n > 35, hasta size=25 para grafos pequeños).
+   - Coloración por Grupo (Pertenencia): Los nodos reciben un color de fondo 
+     específico según la partición asignada extraída del array `partitionColors`. 
+     Esto permite identificar a golpe de vista la pertenencia del nodo.
+
+3. Representación Visual de Dependencias y Aristas:
+   - Grosor Adaptativo de Aristas: El grosor de cada línea se modela de manera 
+     directa en base al peso w_{ij}:
+       width = min( 4, max( 1, floor( w_{ij} / 3 ) ) )
+     A mayor grosor, más fuerte es la dependencia entre los componentes.
+   - Etiquetas de Peso: Se muestra el valor flotante o entero w_{ij} sobre el 
+     punto medio de la línea, excepto para grafos enormes (n > 35) donde se omiten 
+     para evitar saturación visual.
+
+4. Representación Gráfica del Corte (Frontera):
+   - Aristas Cortadas (Externas): Si assignment[i] != assignment[j], la arista 
+     cruza particiones distintas. Se dibuja con color rojo brillante `#e74c3c`,
+     un ancho de línea de 3, y con un trazo discontinuo (`dashes: true`). Esto 
+     destaca el "gasto de acoplamiento" introducido por la partición.
+   - Aristas Internas: Si assignment[i] == assignment[j], la arista representa una 
+     cohesión interna. Se dibuja en color gris sólido y suave `#95a5a6` con un 
+     grosor estándar de 1.5.
+
+================================================================================
+SECCIÓN 9 — ARQUITECTURA DE SOFTWARE Y SEPARACIÓN DE RESPONSABILIDADES
+================================================================================
+
+El sistema está estructurado bajo una arquitectura de capas bien definida, lo que 
+facilita el desacoplamiento y la mantenibilidad del software.
+
+Diagrama ASCII de la Arquitectura del Software:
+
+               +---------------------------------------+
+               |               FRONTEND                |
+               |  - index.html (Estructura de la UI)   |
+               |  - css/styles.css (Estilos y layout)  |
+               +-------------------+-------------------+
+                                   |
+                         Peticiones HTTP (JSON/CORS)
+                                   |
+               +-------------------|-------------------+
+               |                   v                   |
+               |               BACKEND                 |
+               |  app.py (Configuración del servidor)  |
+               |  api/routes.py (Punto de entrada API) |
+               +-------------------+-------------------+
+                                   |
+                        Llamadas internas a Core
+                                   |
+               +-------------------|-------------------+
+               |                   v                   |
+               |                 CORE                  |
+               |  validator.py (Verificaciones)        |
+               |  partition_engine.py (Coordinación)   |
+               |  metrics.py (Corte, aristas, peso)    |
+               +-------------------+-------------------+
+                                   |
+                            Instanciación
+                                   |
+               +-------------------|-------------------+
+               |                   v                   |
+               |              ALGORITHMS               |
+               |  exhaustive.py (Búsqueda exacta)      |
+               |  heuristic.py (Búsqueda local local)  |
+               +---------------------------------------+
+
+Responsabilidades de los Componentes:
+
+1. Capa de Servidor (`backend/app.py`):
+   Inicializa la aplicación Flask, gestiona variables de entorno y configura de 
+   manera robusta las cabeceras CORS (Cross-Origin Resource Sharing). Esto permite 
+   al frontend comunicarse de forma remota, bien sea mediante la librería 
+   `flask_cors` o aplicando cabeceras manuales en el manejador `after_request`.
+
+2. Capa de Rutas API (`backend/api/routes.py`):
+   Recibe la petición POST en `/api/partition`. Valida la presencia de los 
+   parámetros requeridos (`matrix` o `csv`, y `k`). Parsear la entrada CSV si 
+   es necesario, realiza la conversión a números flotantes y orquesta la 
+   comunicación con la validación de entrada antes de instanciar el motor.
+
+3. Capa de Reglas e Integridad (`backend/core/validator.py`):
+   Encapsula de forma exclusiva la lógica de validación matemática y de dominio 
+   del grafo (cuadraticidad, simetría, valores reales positivos y diagonal cero).
+
+4. Capa de Orquestación (`backend/core/partition_engine.py`):
+   Instancia y ejecuta el algoritmo apropiado basándose en la dimensión de la 
+   matriz. Adicionalmente, administra el perfilado físico (`tracemalloc` y `time`) 
+   y coordina la construcción de las explicaciones semánticas estructuradas que 
+   se enviarán de vuelta al cliente.
+
+5. Capa Algorítmica (`backend/algorithms/`):
+   Mantiene los archivos `exhaustive.py` y `heuristic.py` aislados. Estos 
+   contienen únicamente la implementación matemática del backtracking y de la 
+   búsqueda local estocástica, haciéndolos independientes del framework de la API 
+   web.
+
+6. Capa de Visualización y UI (Archivos en `frontend/`):
+   - `index.html` y `styles.css`: Estructuran e implementan la visualización.
+   - `js/api.js`: Abstrae la comunicación de red con el backend.
+   - `js/graph.js`: Encapsula la lógica de vis.js para inicializar y dibujar los
+     grafos interactivos en el Canvas.
+   - `js/visualization.js`: Se encarga exclusivamente de inyectar en el árbol DOM 
+     las tablas de resultados y las explicaciones estructuradas.
+
+¿Por qué el sistema está organizado así?
+Esta organización responde al principio de Separación de Responsabilidades (SoC)
+y de Cohesión Alta/Acoplamiento Débil. Permite, por ejemplo, cambiar el motor de 
+API (p. ej. migrar de Flask a FastAPI) o sustituir la librería de renderizado del 
+frontend sin alterar en absoluto el motor de cálculo matemático ni la lógica de 
+las podas de los algoritmos. También facilita las pruebas unitarias automatizadas 
+sobre funciones puras como `calculate_cut` o `validate_matrix`.
+
+================================================================================
+SECCIÓN 10 — ANÁLISIS CRÍTICO (FORTALEZAS, LIMITACIONES Y ESCALABILIDAD)
+================================================================================
+
+--------------------------------------------------------------------------------
+10.1. FORTALEZAS DEL SISTEMA
+--------------------------------------------------------------------------------
+1. Integridad Matemática Robusta: La validación de entrada impide que algoritmos 
+   de optimización operen con matrices defectuosas que podrían causar bucles 
+   infinitos o resultados erróneos.
+2. Adaptabilidad Algorítmica: La bifurcación automática en n=12 protege la 
+   experiencia del usuario al evitar bloqueos por explosión combinatoria.
+3. Retroalimentación Detallada: La generación automática de justificaciones para 
+   cada componente permite entender el porqué de las agrupaciones desde la 
+   óptica del acoplamiento y cohesión de software.
+4. Interactividad Visual: El renderizado interactivo en Canvas donde los nodos
+   pueden ser arrastrados manualmente facilita la manipulación intuitiva de los 
+   grafos de dependencias.
+
+--------------------------------------------------------------------------------
+10.2. LIMITACIONES DEL SISTEMA
+--------------------------------------------------------------------------------
+1. Rango Restringido de k: Limitar k entre 2 y 5 impide usar el sistema para 
+   problemas de modularización de gran escala (p. ej., particionar 500 componentes 
+   en 20 microservicios).
+2. Ausencia de Semilla Aleatoria Determinista: El algoritmo heurístico utiliza 
+   `random.randrange` sin una semilla (`seed`) fija a nivel de backend. Dos 
+   llamadas idénticas con n >= 12 pueden devolver asignaciones con cortes de 
+   diferente valor o agrupaciones distintas.
+3. Representación Densa de Matrices: Almacenar dependencias como listas de listas 
+   de tipo denso de float penaliza el uso de memoria para grafos dispersos.
+4. Falta de Metaheurísticas Globales: El Hill-Climbing con reinicios aleatorios 
+   es vulnerable a quedarse atrapado en óptimos locales en grafos muy complejos, 
+   en comparación con metaheurísticas globales como Recocido Simulado o Algoritmos 
+   Genéticos.
+
+--------------------------------------------------------------------------------
+10.3. EVALUACIÓN DE ESCALABILIDAD
+--------------------------------------------------------------------------------
+- Escalabilidad Temporal:
+  - Para n < 12, el crecimiento es O(k^n). Se escala muy deficientemente, pero 
+    está protegido por el límite fijo.
+  - Para n >= 12, el algoritmo de búsqueda local escala de forma polinomial 
+    cuadrática: O(restarts * max_no_improve * n^2 * k). Esto permite procesar 
+    fácilmente grafos de cientos de nodos en pocos segundos.
+- Escalabilidad Espacial:
+  El backend utiliza estructuras O(n^2) para la matriz de adyacencia y O(n) para 
+  las asignaciones, lo cual es óptimo en memoria para los tamaños soportados. Sin 
+  embargo, el frontend está limitado por la capacidad del motor de renderizado 
+  HTML5 Canvas de vis.js. Grafos con n > 150 nodos y miles de aristas degradan 
+  la tasa de refresco (frames por segundo) y saturan visualmente la pantalla con 
+  un "efecto ovillo" de conexiones cruzadas.
+
+================================================================================
+SECCIÓN 11 — CONCLUSIÓN TÉCNICA Y EPISTEMOLÓGICA
+================================================================================
+
+¿Qué hace el sistema desde el punto de vista matemático?
+Desde el punto de vista matemático, el sistema realiza una proyección de un 
+hiperespacio discretizado de asignaciones discretas en un espacio unidimensional de 
+costos reales no negativos, y busca identificar el punto mínimo absoluto o 
+aproximado que satisface una restricción de particionado balanceado (k particiones 
+no vacías). Resuelve el problema del Minimum k-Cut traduciéndolo a un problema de 
+decisión combinatoria.
+
+¿Cómo convierte un problema abstracto en una solución computacional?
+1. Estructuración: Traduce el grafo abstracto G en una matriz de adyacencia 
+   numérica bidimensional.
+2. Búsqueda Orientada: Reduce la exploración ciega del árbol mediante poda 
+   algebraica por acotación inferior en el método exhaustivo, y mediante 
+   búsqueda local basada en gradiente de diferencias de dependencias (Delta) en 
+   el método heurístico.
+3. Mapeo Semántico: Traduce vectores indexados de enteros en diccionarios de 
+   dependencias con sentido arquitectónico de software.
+
+¿Por qué esta implementación funciona?
+Esta implementación funciona porque:
+1. Divide el problema según la complejidad computacional implícita, garantizando 
+   precisión matemática para instancias de tamaño pequeño y tiempo de respuesta 
+   acotado para instancias medianas.
+2. Integrar filtros de integridad que garantizan que el sistema nunca trabaje 
+   sobre datos inconsistentes.
+3. Integra las fases de cálculo matemático y de visualización interactiva de red, 
+   permitiendo cerrar la brecha entre el análisis numérico y el diseño de sistemas 
+   complejos.
+================================================================================

@@ -151,6 +151,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
       renderPartitionedGraph(currentMatrix, assignment, result.k);
+      
+      // Cargar y mostrar la sección de gráficas con cache-busting
+      const timestamp = Date.now();
+      document.getElementById("plot-time").src = `http://localhost:5000/api/plots/execution_time_vs_problem_size.png?t=${timestamp}`;
+      document.getElementById("plot-quality").src = `http://localhost:5000/api/plots/solution_quality_vs_parameter.png?t=${timestamp}`;
+      document.getElementById("plot-memory").src = `http://localhost:5000/api/plots/memory_vs_problem_size.png?t=${timestamp}`;
+      document.getElementById("plots-card").style.display = "block";
     }
   });
 });

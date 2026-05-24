@@ -45,7 +45,82 @@ def partition():
 
     engine = PartitionEngine(matrix, int(k))
     result = engine.run()
+    
+    if result.get("status") == "success":
+        ds_type = "usuario"
+        if csv_content:
+            ds_type = "usuario (CSV)"
+        _save_run_and_update_plots(
+            result.get("algorithm_used"),
+            ds_type,
+            result.get("n"),
+            result.get("k"),
+            result.get("execution_time_ms"),
+            result.get("memory_peak_kb"),
+            result.get("cut_value")
+        )
+        
     return jsonify(result)
+
+
+def _save_run_and_update_plots(algorithm, dataset_type, n, k, time_ms, mem_kb, cut):
+    import os
+    import csv
+    import sys
+    
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+        
+    try:
+        from backend.analysis.benchmark_visualizer import generate_all_plots
+        from backend.analysis.benchmark_report import generate_reports
+    except ImportError as e:
+        print(f"No se pudieron importar generadores: {e}")
+        return
+
+    csv_path1 = os.path.join(ROOT, "results", "tables", "summary_results.csv")
+    csv_path2 = os.path.join(ROOT, "results", "plots", "summary_results.csv")
+    
+    row = {
+        "algorithm": algorithm,
+        "dataset_type": dataset_type,
+        "n": n,
+        "k": k,
+        "execution_time_ms": time_ms,
+        "memory_peak_kb": mem_kb,
+        "cut_value": cut
+    }
+    
+    for path in [csv_path1, csv_path2]:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            file_exists = os.path.exists(path)
+            with open(path, "a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    "algorithm", "dataset_type", "n", "k", "execution_time_ms", "memory_peak_kb", "cut_value"
+                ])
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(row)
+        except Exception as e:
+            print(f"Error escribiendo en {path}: {e}")
+            
+    try:
+        generate_all_plots()
+        generate_reports()
+        print("Gráficas y reportes interactivos actualizados exitosamente.")
+    except Exception as e:
+        print(f"Error al regenerar gráficas/reportes: {e}")
+
+
+@api_bp.route("/plots/<path:filename>", methods=["GET"])
+def get_plot(filename):
+    import os
+    from flask import send_from_directory
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    plots_dir = os.path.join(ROOT, "results", "plots")
+    return send_from_directory(plots_dir, filename)
 
 
 def _parse_csv(csv_text):
