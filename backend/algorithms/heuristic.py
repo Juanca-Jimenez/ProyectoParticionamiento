@@ -3,68 +3,126 @@ from backend.core.metrics import calculate_cut
 
 
 def heuristic_partition(matrix, k, restarts=30, max_no_improve=20):
-    """Heuristic local search that ensures the returned assignment uses exactly k non-empty groups.
-
-    Strategy:
-    - Initialize assignments with first k nodes each in distinct groups to avoid empty groups.
-    - Run local search but do not allow moves that would empty a group.
-    - If after local search some groups are empty (rare), repair by moving nodes with minimal cost increase.
     """
-    n = len(matrix)
-    best_assignment = None
-    best_cut = float("inf")
+    Algoritmo heurístico de particionamiento.
+
+    Objetivo:
+    Encontrar una partición de exactamente k grupos
+    que minimice el valor de corte.
+
+    Estrategia:
+    1. Generar una solución inicial aleatoria.
+    2. Mejorarla mediante búsqueda local.
+    3. Repetir varias veces (reinicios).
+    4. Conservar la mejor solución encontrada.
+    """
+
+    
+    n = len(matrix)  # Número total de componentes del sistema
+    best_assignment = None  # Mejor solución encontrada entre todos los reinicios
+    best_cut = float("inf")  # Mejor valor de corte encontrado
 
     def local_search(assignment):
+        """
+        Mejora una solución inicial moviendo componentes
+        entre grupos si el corte disminuye.
+        """
+
+        # Calcular costo inicial
         current_cut = calculate_cut(matrix, assignment)
+
+        # Contador de iteraciones consecutivas sin mejora
         no_improve = 0
-        # keep track of counts to prevent emptying a group
+        # Contar cuántos componentes hay en cada grupo
         counts = [0] * k
         for g in assignment:
             counts[g] += 1
 
+       # Continuar mientras todavía aparezcan mejoras
         while no_improve < max_no_improve:
             improved = False
+
+            # Analizar componente por componente
             for i in range(n):
+
+                # Grupo actual del componente
                 current_group = assignment[i]
+                # Inicialmente asumimos que no se moverá
                 best_move = current_group
+                 # Mejor reducción encontrada
                 best_delta = 0
+
+
+                # Probar mover el componente
+                # a todos los grupos posibles
                 for target_group in range(k):
+
+                      # Ignorar mover al mismo grupo
                     if target_group == current_group:
                         continue
-                    # don't allow move that would empty current_group
+                     # No permitir dejar grupos vacíos
                     if counts[current_group] <= 1:
                         continue
+
+                      # Cambio estimado en el corte 
                     delta = 0
+
+                        # Analizar impacto del movimiento
                     for j in range(n):
+                    # Ignorar comparación consigo mismo
                         if i == j:
                             continue
+
+                        # Si j pertenece al grupo actual:
+                        # mover i rompería esa conexión
                         if assignment[j] == current_group:
                             delta += matrix[i][j]
+                        # Si j pertenece al grupo destino:
+                        # mover i fortalecería agrupamiento
                         elif assignment[j] == target_group:
                             delta -= matrix[i][j]
+                    
+                    # Guardar el mejor movimiento
                     if delta < best_delta:
                         best_delta = delta
                         best_move = target_group
+
+                  # Aplicar movimiento si mejora
                 if best_move != current_group:
+
+                    # Actualizar tamaños de grupos
                     counts[current_group] -= 1
                     counts[best_move] += 1
+                    # Mover componente
                     assignment[i] = best_move
+                    # Actualizar corte sin recalcular completo
                     current_cut += best_delta
                     improved = True
+
+             # Reiniciar contador si hubo mejora        
             if improved:
                 no_improve = 0
+            # Acercarse al criterio de parada
             else:
                 no_improve += 1
         return assignment, current_cut
 
     def repair_assignment(assignment):
-        # ensure all groups present; for each missing group, move the node whose move
-        # causes the smallest increase in cut
+        """
+        Corrige soluciones inválidas.
+
+        Garantiza que existan exactamente k grupos.
+        """
+
+# Grupos presentes actualmente
         present = set(assignment)
         missing = [g for g in range(k) if g not in present]
+
+        # Si ya está válida
         if not missing:
             return assignment
 
+        # Contar tamaños de grupos
         counts = [0] * k
         for g in assignment:
             counts[g] += 1
@@ -89,8 +147,11 @@ def heuristic_partition(matrix, k, restarts=30, max_no_improve=20):
                     best_increase = increase
                     best_node = i
             if best_node is None:
-                # fallback: pick any node from the largest group
+            # Respaldo:
+            # tomar componente del grupo más grande
                 largest = max(range(k), key=lambda x: counts[x])
+
+            # Buscar nodo que menos empeore
                 for i in range(n):
                     if assignment[i] == largest:
                         best_node = i
@@ -102,15 +163,21 @@ def heuristic_partition(matrix, k, restarts=30, max_no_improve=20):
 
         return assignment
 
+    # ==========================
+    # REINICIOS ALEATORIOS
+    # ==========================
     for _ in range(restarts):
-        # initialize so first k nodes occupy distinct groups to avoid empty groups
+        # Crear solución inicial
         assignment = [random.randrange(k) for _ in range(n)]
+        # Forzar presencia de todos los grupos
         if n >= k:
             for i in range(k):
                 assignment[i] = i
 
+# Mejorar solución inicial
         assignment, current_cut = local_search(assignment)
-        # repair if needed
+
+        # Reparar si quedó inválida
         if len(set(assignment)) != k:
             assignment = repair_assignment(assignment)
             current_cut = calculate_cut(matrix, assignment)
@@ -118,6 +185,10 @@ def heuristic_partition(matrix, k, restarts=30, max_no_improve=20):
         if len(set(assignment)) == k and current_cut < best_cut:
             best_cut = current_cut
             best_assignment = assignment.copy()
+
+    # ==========================
+    # RESPALDO FINAL
+    # ==========================
 
     if best_assignment is None:
         # try deterministic valid fallback: first k nodes in distinct groups
